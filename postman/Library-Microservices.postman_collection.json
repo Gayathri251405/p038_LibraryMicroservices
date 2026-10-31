@@ -1,0 +1,553 @@
+{
+  "info": {
+    "_postman_id": "bc37700a-3bd2-4c64-98f9-1c9301bb6a03",
+    "name": "Library Management Microservices",
+    "description": "JWT login, student/faculty circulation, admin user management, book CRUD, invalid-token handling, and Eureka load balancing.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "adminUsername", "value": "admin" },
+    { "key": "adminPassword", "value": "Admin12345!" },
+    { "key": "librarianUsername", "value": "librarian" },
+    { "key": "librarianPassword", "value": "Librarian123!" },
+    { "key": "facultyUsername", "value": "" },
+    { "key": "readerUsername", "value": "" },
+    { "key": "userToken", "value": "" },
+    { "key": "adminToken", "value": "" },
+    { "key": "librarianToken", "value": "" },
+    { "key": "bookId", "value": "" },
+    { "key": "librarianBookId", "value": "" },
+    { "key": "isbn", "value": "" },
+    { "key": "librarianIsbn", "value": "" },
+    { "key": "instancePorts", "value": "[]" }
+  ],
+  "item": [
+    {
+      "name": "Register STUDENT",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.collectionVariables.set('readerUsername', 'reader-' + Date.now() + '-' + Math.floor(Math.random() * 100000));"
+            ]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Registration returns 200 and STUDENT token', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const data = pm.response.json();",
+              "  pm.expect(data.role).to.eql('STUDENT');",
+              "  pm.collectionVariables.set('userToken', data.accessToken);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{readerUsername}}\",\"password\":\"reader-password-123\"}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/auth/register"
+      }
+    },
+    {
+      "name": "Login STUDENT",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('STUDENT login returns token', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const data = pm.response.json();",
+              "  pm.expect(data.role).to.eql('STUDENT');",
+              "  pm.collectionVariables.set('userToken', data.accessToken);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{readerUsername}}\",\"password\":\"reader-password-123\"}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/auth/login"
+      }
+    },
+    {
+      "name": "Books without token (401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Missing token returns 401', function () { pm.response.to.have.status(401); });"]
+          }
+        }
+      ],
+      "request": { "method": "GET", "url": "{{baseUrl}}/api/books" }
+    },
+    {
+      "name": "Books with invalid token (401)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Invalid token returns 401', function () { pm.response.to.have.status(401); });"]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer not.a.valid.token" }],
+        "url": "{{baseUrl}}/api/books"
+      }
+    },
+    {
+      "name": "STUDENT reads books",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Authenticated STUDENT can read', function () { pm.response.to.have.status(200); });"]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+        "url": "{{baseUrl}}/api/books"
+      }
+    },
+    {
+      "name": "STUDENT cannot create books (403)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('STUDENT write returns 403', function () { pm.response.to.have.status(403); });"]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{userToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"title\":\"Forbidden\",\"author\":\"Reader\",\"isbn\":\"DENIED-POSTMAN\",\"publishedYear\":2025}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/books"
+      }
+    },
+    {
+      "name": "Login ADMIN",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('ADMIN login returns ADMIN token', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const data = pm.response.json();",
+              "  pm.expect(data.role).to.eql('ADMIN');",
+              "  pm.collectionVariables.set('adminToken', data.accessToken);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{adminUsername}}\",\"password\":\"{{adminPassword}}\"}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/auth/login"
+      }
+    },
+    {
+      "name": "ADMIN creates a student account",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.collectionVariables.set('facultyUsername', 'faculty-' + Date.now() + '-' + Math.floor(Math.random() * 10000));"]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('ADMIN can create a patron account', function () {",
+              "  pm.response.to.have.status(201);",
+              "  pm.expect(pm.response.json().role).to.eql('STUDENT');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "******" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{facultyUsername}}\",\"password\":\"faculty-password-123\",\"role\":\"STUDENT\"}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/auth/users"
+      }
+    },
+    {
+      "name": "ADMIN assigns faculty role",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('ADMIN can assign FACULTY role', function () {",
+              "  pm.response.to.have.status(200);",
+              "  pm.expect(pm.response.json().role).to.eql('FACULTY');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "******" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"role\":\"FACULTY\"}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/auth/users/{{facultyUsername}}/role"
+      }
+    },
+    {
+      "name": "ADMIN lists accounts",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('ADMIN list contains managed faculty without passwords', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const user = pm.response.json().find(function (entry) { return entry.username === pm.collectionVariables.get('facultyUsername'); });",
+              "  pm.expect(user.role).to.eql('FACULTY');",
+              "  pm.expect(user).not.to.have.property('passwordHash');",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "******" }],
+        "url": "{{baseUrl}}/api/auth/users"
+      }
+    },
+    {
+      "name": "ADMIN removes temporary account",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('ADMIN removes managed account', function () { pm.response.to.have.status(204); });"]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "******" }],
+        "url": "{{baseUrl}}/api/auth/users/{{facultyUsername}}"
+      }
+    },
+    {
+      "name": "ADMIN creates a book",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.collectionVariables.set('isbn', 'ADMIN-' + Date.now() + '-' + Math.floor(Math.random() * 10000));"]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('ADMIN create returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "  pm.collectionVariables.set('bookId', pm.response.json().id);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"title\":\"Distributed Systems\",\"author\":\"A. Writer\",\"isbn\":\"{{isbn}}\",\"publishedYear\":2025}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/books"
+      }
+    },
+    {
+      "name": "STUDENT gets a book",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('STUDENT can read a book by id', function () { pm.response.to.have.status(200); });"]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+        "url": "{{baseUrl}}/api/books/{{bookId}}"
+      }
+    },
+    {
+      "name": "ADMIN updates a book",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('ADMIN update returns 200', function () { pm.response.to.have.status(200); });"]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{adminToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"title\":\"Distributed Systems Updated\",\"author\":\"A. Writer\",\"isbn\":\"{{isbn}}\",\"publishedYear\":2026}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/books/{{bookId}}"
+      }
+    },
+    {
+      "name": "Login LIBRARIAN",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('LIBRARIAN login returns LIBRARIAN token', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const data = pm.response.json();",
+              "  pm.expect(data.role).to.eql('LIBRARIAN');",
+              "  pm.collectionVariables.set('librarianToken', data.accessToken);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [{ "key": "Content-Type", "value": "application/json" }],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"username\":\"{{librarianUsername}}\",\"password\":\"{{librarianPassword}}\"}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/auth/login"
+      }
+    },
+    {
+      "name": "LIBRARIAN creates a book",
+      "event": [
+        {
+          "listen": "prerequest",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.collectionVariables.set('librarianIsbn', 'LIB-' + Date.now() + '-' + Math.floor(Math.random() * 10000));"]
+          }
+        },
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('LIBRARIAN create returns 201', function () {",
+              "  pm.response.to.have.status(201);",
+              "  pm.collectionVariables.set('librarianBookId', pm.response.json().id);",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{librarianToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"title\":\"Library Operations\",\"author\":\"L. Keeper\",\"isbn\":\"{{librarianIsbn}}\",\"publishedYear\":2024}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/books"
+      }
+    },
+    {
+      "name": "LIBRARIAN updates a book",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('LIBRARIAN update returns 200', function () { pm.response.to.have.status(200); });"]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          { "key": "Authorization", "value": "Bearer {{librarianToken}}" },
+          { "key": "Content-Type", "value": "application/json" }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"title\":\"Library Operations Updated\",\"author\":\"L. Keeper\",\"isbn\":\"{{librarianIsbn}}\",\"publishedYear\":2025}",
+          "options": { "raw": { "language": "json" } }
+        },
+        "url": "{{baseUrl}}/api/books/{{librarianBookId}}"
+      }
+    },
+    {
+      "name": "LIBRARIAN deletes a book",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('LIBRARIAN delete returns 204', function () { pm.response.to.have.status(204); });"]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{librarianToken}}" }],
+        "url": "{{baseUrl}}/api/books/{{librarianBookId}}"
+      }
+    },
+    {
+      "name": "ADMIN deletes a book",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('ADMIN delete returns 204', function () { pm.response.to.have.status(204); });"]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [{ "key": "Authorization", "value": "Bearer {{adminToken}}" }],
+        "url": "{{baseUrl}}/api/books/{{bookId}}"
+      }
+    },
+    {
+      "name": "Verify deleted book is missing",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": ["pm.test('Deleted book returns 404', function () { pm.response.to.have.status(404); });"]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+        "url": "{{baseUrl}}/api/books/{{bookId}}"
+      }
+    },
+    {
+      "name": "Load balancing - record instance (run collection 20 times)",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "type": "text/javascript",
+            "exec": [
+              "pm.test('Book response is served by a registered instance', function () {",
+              "  pm.response.to.have.status(200);",
+              "  const instance = pm.response.headers.get('X-Service-Instance');",
+              "  pm.expect(instance).to.be.oneOf(['8082', '8083']);",
+              "  const ports = JSON.parse(pm.collectionVariables.get('instancePorts') || '[]');",
+              "  if (!ports.includes(instance)) ports.push(instance);",
+              "  pm.collectionVariables.set('instancePorts', JSON.stringify(ports));",
+              "  if (pm.info.iteration === pm.info.iterationCount - 1) {",
+              "    pm.expect(ports).to.include('8082');",
+              "    pm.expect(ports).to.include('8083');",
+              "  }",
+              "});"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [{ "key": "Authorization", "value": "Bearer {{userToken}}" }],
+        "url": "{{baseUrl}}/api/books"
+      }
+    }
+  ]
+}
