@@ -1,0 +1,21 @@
+spring:
+  datasource:
+    url: jdbc:h2:mem:auth-test;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+eureka:
+  client:
+    enabled: false
+app:
+  jwt:
+    secret: auth-service-integration-test-secret-32-bytes
+  admin:
+    username: test-admin
+    password: test-admin-password
+  librarian:
+    username: test-librarian
+    password: test-librarian-password

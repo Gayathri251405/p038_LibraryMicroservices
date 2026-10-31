@@ -1,0 +1,705 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Library Management System</title>
+    <style>
+        :root {
+            color-scheme: light;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+            color: #172033;
+            background: #f3f6fb;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; min-height: 100vh; }
+        header {
+            align-items: center;
+            background: #172b4d;
+            color: #fff;
+            display: flex;
+            justify-content: space-between;
+            padding: 18px max(24px, calc((100% - 1120px) / 2));
+        }
+        header h1 { font-size: 1.15rem; margin: 0; }
+        header a { color: #d7e5ff; font-size: .9rem; }
+        main { margin: 34px auto; max-width: 1120px; padding: 0 22px 40px; }
+        h2 { margin: 0 0 8px; }
+        .intro { color: #5a667a; margin: 0 0 24px; }
+        .card {
+            background: #fff;
+            border: 1px solid #e1e7f0;
+            border-radius: 12px;
+            box-shadow: 0 8px 26px #1720330b;
+            margin-bottom: 20px;
+            padding: 22px;
+        }
+        .auth-grid { display: grid; gap: 24px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .auth-grid h3 { margin: 0 0 14px; }
+        form { display: grid; gap: 12px; }
+        label { color: #44516a; display: grid; font-size: .9rem; gap: 6px; }
+        input {
+            background: #fff;
+            border: 1px solid #ccd5e2;
+            border-radius: 7px;
+            color: #172033;
+            font: inherit;
+            min-height: 42px;
+            padding: 8px 11px;
+            width: 100%;
+        }
+        input:focus { border-color: #3269c8; outline: 3px solid #3269c822; }
+        button, .button-link {
+            align-items: center;
+            background: #2459ad;
+            border: 0;
+            border-radius: 7px;
+            color: #fff;
+            cursor: pointer;
+            display: inline-flex;
+            font: inherit;
+            font-weight: 650;
+            justify-content: center;
+            min-height: 40px;
+            padding: 8px 14px;
+            text-decoration: none;
+            width: fit-content;
+        }
+        button:hover, .button-link:hover { background: #19478f; }
+        button:disabled { cursor: wait; opacity: .65; }
+        button.secondary { background: #eef2f8; color: #25324a; }
+        button.secondary:hover { background: #e0e7f1; }
+        button.danger { background: #a12c3c; }
+        button.danger:hover { background: #812130; }
+        .toolbar { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; }
+        .toolbar form { align-items: center; display: flex; flex-wrap: wrap; gap: 8px; }
+        .search-label { display: block; }
+        .search-input { max-width: 340px; min-width: 200px; }
+        .toolbar .spacer { flex: 1; }
+        .muted { color: #657187; }
+        .message { border-radius: 7px; margin: 0 0 16px; padding: 10px 12px; }
+        .message.error { background: #fff0f0; color: #922b38; }
+        .message.success { background: #eaf8ef; color: #17643b; }
+        .message[hidden], [hidden] { display: none !important; }
+        .table-wrap { overflow-x: auto; }
+        table { border-collapse: collapse; min-width: 640px; width: 100%; }
+        th, td { border-bottom: 1px solid #e6ebf2; padding: 12px 10px; text-align: left; }
+        th { color: #59667b; font-size: .82rem; font-weight: 700; }
+        td { vertical-align: middle; }
+        td.actions { white-space: nowrap; }
+        td.actions button { margin-right: 6px; }
+        .empty { color: #68758a; padding: 28px 8px; text-align: center; }
+        .form-grid { display: grid; gap: 12px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .form-grid .wide { grid-column: 1 / -1; }
+        .session { color: #e2eaff; font-size: .9rem; }
+        .user-row { align-items: center; display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 0; }
+        footer { color: #6b778c; font-size: .88rem; padding: 8px 0 22px; text-align: center; }
+        footer a { color: #2459ad; }
+        @media (max-width: 680px) {
+            header { padding: 16px 20px; }
+            main { margin-top: 24px; }
+            .auth-grid, .form-grid { grid-template-columns: 1fr; }
+            .form-grid .wide { grid-column: auto; }
+            .card { padding: 17px; }
+        }
+    </style>
+</head>
+<body>
+<header>
+    <h1>Library Management System</h1>
+    <div class="toolbar">
+        <span class="session" id="session-label"></span>
+        <button class="secondary" id="logout-button" type="button" hidden>Sign out</button>
+    </div>
+</header>
+<main>
+    <h2>Library catalogue</h2>
+    <p class="intro">Browse the collection, or sign in to manage books according to your role.</p>
+    <p class="message" id="message" role="status" aria-live="polite" hidden></p>
+
+    <section class="card" id="auth-panel">
+        <div class="auth-grid">
+            <form id="login-form">
+                <h3>Sign in</h3>
+                <label>Username
+                    <input name="username" autocomplete="username" maxlength="80" required>
+                </label>
+                <label>Password
+                    <input name="password" type="password" autocomplete="current-password" minlength="8" maxlength="72" required>
+                </label>
+                <button type="submit">Sign in</button>
+            </form>
+            <form id="register-form">
+                <h3>Create a student account</h3>
+                <label>Username
+                    <input name="username" autocomplete="username" maxlength="80" required>
+                </label>
+                <label>Password (at least 8 characters)
+                    <input name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required>
+                </label>
+                <button type="submit">Register</button>
+                <span class="muted">Student accounts can borrow and reserve books. Faculty accounts are created by an administrator.</span>
+            </form>
+        </div>
+    </section>
+
+    <section class="card" id="catalogue-panel" hidden>
+        <div class="toolbar" style="margin-bottom: 14px">
+            <strong>Books</strong>
+            <span class="spacer"></span>
+            <button class="secondary" id="refresh-button" type="button">Refresh list</button>
+        </div>
+        <form id="search-form" class="toolbar" role="search" style="margin-bottom: 14px">
+            <label class="search-label" for="search-query">Search title, author, or ISBN</label>
+            <input class="search-input" id="search-query" name="q" type="search" maxlength="160"
+                   placeholder="Enter a title, author, or ISBN">
+            <button type="submit">Search</button>
+            <button class="secondary" id="clear-search-button" type="button">Clear</button>
+        </form>
+        <p class="muted" id="results-count" aria-live="polite"></p>
+        <div class="table-wrap">
+            <table>
+                <thead>
+                <tr><th>Title</th><th>Author</th><th>ISBN</th><th>Year</th><th>Digital resource</th><th id="actions-heading" hidden>Actions</th></tr>
+                </thead>
+                <tbody id="books-body"></tbody>
+            </table>
+            <div class="empty" id="empty-state" hidden>No books found.</div>
+        </div>
+    </section>
+
+    <section class="card" id="circulation-panel" hidden>
+        <h3>Loans</h3>
+        <div id="loans-list" class="muted">No loans.</div>
+        <h3 style="margin-top: 20px">Reservations</h3>
+        <div id="reservations-list" class="muted">No reservations.</div>
+    </section>
+
+    <section class="card" id="user-admin-panel" hidden>
+        <h3>Account management</h3>
+        <form id="user-form" class="form-grid" style="margin-bottom: 18px">
+            <label>Username
+                <input name="username" maxlength="80" required>
+            </label>
+            <label>Temporary password
+                <input name="password" type="password" minlength="8" maxlength="72" required>
+            </label>
+            <label>Role
+                <select name="role" required>
+                    <option value="STUDENT">Student</option>
+                    <option value="FACULTY">Faculty</option>
+                    <option value="LIBRARIAN">Librarian</option>
+                </select>
+            </label>
+            <button type="submit">Create account</button>
+        </form>
+        <div id="users-list" aria-live="polite"></div>
+    </section>
+
+    <section class="card" id="editor-panel" hidden>
+        <h3 id="editor-title">Add a book</h3>
+        <form id="book-form">
+            <div class="form-grid">
+                <label class="wide">Title
+                    <input name="title" maxlength="200" required>
+                </label>
+                <label>Author
+                    <input name="author" maxlength="160" required>
+                </label>
+                <label>ISBN
+                    <input name="isbn" maxlength="32" required>
+                </label>
+                <label>Published year (optional)
+                    <input name="publishedYear" type="number" min="1" step="1">
+                </label>
+                <label class="wide">Digital resource URL (optional, HTTPS)
+                    <input name="digitalResourceUrl" type="url" pattern="https://.+" maxlength="2048">
+                </label>
+            </div>
+            <div class="toolbar">
+                <button id="save-book-button" type="submit">Add book</button>
+                <button class="secondary" id="cancel-edit-button" type="button" hidden>Cancel edit</button>
+            </div>
+        </form>
+    </section>
+
+    <footer>
+        <a href="/actuator/health">Gateway health</a>
+        &nbsp;·&nbsp;
+        <a href="http://localhost:8761">Eureka dashboard</a>
+        &nbsp;·&nbsp;
+        API requests use the secure Gateway endpoints.
+    </footer>
+</main>
+<script>
+    (() => {
+        const tokenKey = "library.accessToken";
+        const roleKey = "library.role";
+        const usernameKey = "library.username";
+        const authPanel = document.getElementById("auth-panel");
+        const cataloguePanel = document.getElementById("catalogue-panel");
+        const circulationPanel = document.getElementById("circulation-panel");
+        const userAdminPanel = document.getElementById("user-admin-panel");
+        const editorPanel = document.getElementById("editor-panel");
+        const booksBody = document.getElementById("books-body");
+        const emptyState = document.getElementById("empty-state");
+        const searchQuery = document.getElementById("search-query");
+        const resultsCount = document.getElementById("results-count");
+        const actionsHeading = document.getElementById("actions-heading");
+        const sessionLabel = document.getElementById("session-label");
+        const logoutButton = document.getElementById("logout-button");
+        const message = document.getElementById("message");
+        const bookForm = document.getElementById("book-form");
+        const loansList = document.getElementById("loans-list");
+        const reservationsList = document.getElementById("reservations-list");
+        const usersList = document.getElementById("users-list");
+        const userForm = document.getElementById("user-form");
+        let editingBookId = null;
+        let messageTimer;
+
+        function showMessage(text, kind) {
+            window.clearTimeout(messageTimer);
+            message.textContent = text;
+            message.className = `message ${kind}`;
+            message.hidden = false;
+            if (kind === "success") {
+                messageTimer = window.setTimeout(() => { message.hidden = true; }, 5000);
+            }
+        }
+
+        function clearMessage() {
+            window.clearTimeout(messageTimer);
+            message.hidden = true;
+            message.textContent = "";
+        }
+
+        async function api(path, options = {}) {
+            const headers = new Headers(options.headers || {});
+            const token = sessionStorage.getItem(tokenKey);
+            if (token) headers.set("Authorization", `Bearer ${token}`);
+            if (options.body !== undefined) headers.set("Content-Type", "application/json");
+            const response = await fetch(path, { ...options, headers });
+            const responseText = response.status === 204 ? "" : await response.text();
+            let body = null;
+            if (responseText) {
+                try { body = JSON.parse(responseText); }
+                catch { body = responseText; }
+            }
+            if (!response.ok) {
+                const detail = body && typeof body === "object"
+                    ? (body.message || body.error || body.detail || body.title)
+                    : body;
+                throw new Error(detail || `Request failed (HTTP ${response.status})`);
+            }
+            return { response, body };
+        }
+
+        function canManageBooks() {
+            return ["ADMIN", "LIBRARIAN"].includes(sessionStorage.getItem(roleKey));
+        }
+
+        function canBorrow() {
+            return ["USER", "STUDENT", "FACULTY"].includes(sessionStorage.getItem(roleKey));
+        }
+
+        function renderSession() {
+            const signedIn = Boolean(sessionStorage.getItem(tokenKey));
+            const role = sessionStorage.getItem(roleKey);
+            const manager = canManageBooks();
+            const admin = sessionStorage.getItem(roleKey) === "ADMIN";
+            authPanel.hidden = signedIn;
+            cataloguePanel.hidden = !signedIn;
+            circulationPanel.hidden = !signedIn;
+            userAdminPanel.hidden = !admin;
+            editorPanel.hidden = !signedIn || !manager;
+            logoutButton.hidden = !signedIn;
+            actionsHeading.hidden = !manager && !canBorrow();
+            sessionLabel.textContent = signedIn
+                ? `${sessionStorage.getItem(usernameKey)} · ${role}`
+                : "";
+            if (!manager) resetBookForm();
+            if (signedIn) {
+                loadBooks();
+                loadCirculation();
+                if (admin) loadUsers();
+            } else {
+                booksBody.replaceChildren();
+                loansList.textContent = "No loans.";
+                reservationsList.textContent = "No reservations.";
+                usersList.replaceChildren();
+            }
+        }
+
+        function addCell(row, value) {
+            const cell = document.createElement("td");
+            cell.textContent = value === null || value === undefined || value === ""
+                ? "—"
+                : String(value);
+            row.append(cell);
+            return cell;
+        }
+
+        function renderBooks(books) {
+            booksBody.replaceChildren();
+            emptyState.hidden = books.length !== 0;
+            emptyState.textContent = searchQuery.value.trim()
+                ? "No books match your search."
+                : "No books found.";
+            resultsCount.textContent = `Showing ${books.length} ${books.length === 1 ? "book" : "books"}.`;
+            for (const book of books) {
+                const row = document.createElement("tr");
+                addCell(row, book.title);
+                addCell(row, book.author);
+                addCell(row, book.isbn);
+                addCell(row, book.publishedYear);
+                const resourceCell = addCell(row, "");
+                if (book.digitalResourceUrl) {
+                    const resourceLink = document.createElement("a");
+                    resourceLink.href = book.digitalResourceUrl;
+                    resourceLink.textContent = "Open resource";
+                    resourceLink.target = "_blank";
+                    resourceLink.rel = "noopener noreferrer";
+                    resourceCell.replaceChildren(resourceLink);
+                }
+                if (canManageBooks() || canBorrow()) {
+                    const actions = document.createElement("td");
+                    actions.className = "actions";
+                    if (canBorrow()) {
+                        const borrowButton = document.createElement("button");
+                        borrowButton.type = "button";
+                        borrowButton.textContent = "Borrow";
+                        borrowButton.addEventListener("click", () => circulate("loans", book.id, "POST"));
+                        const reserveButton = document.createElement("button");
+                        reserveButton.className = "secondary";
+                        reserveButton.type = "button";
+                        reserveButton.textContent = "Reserve";
+                        reserveButton.addEventListener("click", () => circulate("reservations", book.id, "POST"));
+                        actions.append(borrowButton, reserveButton);
+                    }
+                    if (canManageBooks()) {
+                        const editButton = document.createElement("button");
+                        editButton.className = "secondary";
+                        editButton.type = "button";
+                        editButton.textContent = "Edit";
+                        editButton.addEventListener("click", () => editBook(book));
+                        const deleteButton = document.createElement("button");
+                        deleteButton.className = "danger";
+                        deleteButton.type = "button";
+                        deleteButton.textContent = "Delete";
+                        deleteButton.addEventListener("click", () => deleteBook(book));
+                        actions.append(editButton, deleteButton);
+                    }
+                    row.append(actions);
+                }
+                booksBody.append(row);
+            }
+        }
+
+        async function loadBooks() {
+            try {
+                const query = searchQuery.value.trim();
+                const path = query ? `/api/books?q=${encodeURIComponent(query)}` : "/api/books";
+                const { body } = await api(path);
+                if (!Array.isArray(body)) throw new Error("The book service returned an unexpected response.");
+                renderBooks(body);
+            } catch (error) {
+                showMessage(error.message, "error");
+            }
+        }
+
+        async function loadCirculation() {
+            try {
+                const [{ body: loans }, { body: reservations }] = await Promise.all([
+                    api("/api/circulation/loans"),
+                    api("/api/circulation/reservations")
+                ]);
+                renderCirculation(loansList, loans, "loan");
+                renderCirculation(reservationsList, reservations, "reservation");
+            } catch (error) {
+                showMessage(error.message, "error");
+            }
+        }
+
+        function renderCirculation(container, records, kind) {
+            container.replaceChildren();
+            if (!Array.isArray(records) || records.length === 0) {
+                container.textContent = `No ${kind === "loan" ? "loans" : "reservations"}.`;
+                return;
+            }
+            const list = document.createElement("ul");
+            for (const record of records) {
+                const item = document.createElement("li");
+                const details = kind === "loan"
+                    ? `${record.bookTitle} — ${record.returnedAt ? "Returned" : `Due ${record.dueDate}`} · Fine $${record.fineAmount}`
+                    : `${record.bookTitle} — ${record.status}`;
+                item.append(document.createTextNode(details));
+                const active = kind === "loan"
+                    ? !record.returnedAt
+                    : ["WAITING", "READY"].includes(record.status);
+                if (active && (kind === "loan" || kind === "reservation")) {
+                    const button = document.createElement("button");
+                    button.className = "secondary";
+                    button.type = "button";
+                    button.textContent = kind === "loan" ? "Return" : "Cancel";
+                    button.style.marginLeft = "10px";
+                    button.addEventListener("click", () => kind === "loan"
+                        ? returnLoan(record.id)
+                        : cancelReservation(record.id));
+                    item.append(button);
+                }
+                list.append(item);
+            }
+            container.append(list);
+        }
+
+        async function circulate(type, bookId, method) {
+            try {
+                const { body } = await api(`/api/circulation/${type}`, {
+                    method,
+                    body: JSON.stringify({ bookId })
+                });
+                showMessage(type === "loans"
+                    ? `Book borrowed. Due ${body.dueDate}.`
+                    : `Reservation placed (${body.status}).`, "success");
+                await loadCirculation();
+            } catch (error) {
+                showMessage(error.message, "error");
+            }
+        }
+
+        async function returnLoan(id) {
+            try {
+                const { body } = await api(`/api/circulation/loans/${encodeURIComponent(id)}/return`, {
+                    method: "POST"
+                });
+                showMessage(`Book returned. Fine: $${body.fineAmount}.`, "success");
+                await loadCirculation();
+            } catch (error) {
+                showMessage(error.message, "error");
+            }
+        }
+
+        async function cancelReservation(id) {
+            try {
+                await api(`/api/circulation/reservations/${encodeURIComponent(id)}`, { method: "DELETE" });
+                showMessage("Reservation cancelled.", "success");
+                await loadCirculation();
+            } catch (error) {
+                showMessage(error.message, "error");
+            }
+        }
+
+        async function loadUsers() {
+            try {
+                const { body } = await api("/api/auth/users");
+                if (!Array.isArray(body)) throw new Error("The auth service returned an unexpected response.");
+                usersList.replaceChildren();
+                for (const account of body) {
+                    const row = document.createElement("div");
+                    row.className = "user-row";
+                    const username = document.createElement("strong");
+                    username.textContent = account.username;
+                    const role = document.createElement("select");
+                    for (const [value, label] of [
+                        ["STUDENT", "Student"], ["FACULTY", "Faculty"], ["LIBRARIAN", "Librarian"]
+                    ]) {
+                        const option = document.createElement("option");
+                        option.value = value;
+                        option.textContent = label;
+                        role.append(option);
+                    }
+                    if (account.role === "ADMIN") {
+                        const adminOption = document.createElement("option");
+                        adminOption.value = "ADMIN";
+                        adminOption.textContent = "Administrator";
+                        adminOption.disabled = true;
+                        role.append(adminOption);
+                    }
+                    role.value = account.role === "USER" ? "STUDENT" : account.role;
+                    const isCurrentUser = account.username === sessionStorage.getItem(usernameKey);
+                    role.disabled = isCurrentUser;
+                    const save = document.createElement("button");
+                    save.className = "secondary";
+                    save.type = "button";
+                    save.textContent = "Update role";
+                    save.disabled = isCurrentUser;
+                    save.addEventListener("click", () => updateUserRole(account.username, role.value));
+                    const remove = document.createElement("button");
+                    remove.className = "danger";
+                    remove.type = "button";
+                    remove.textContent = "Delete";
+                    remove.disabled = isCurrentUser;
+                    remove.addEventListener("click", () => deleteUser(account.username));
+                    row.append(username, role, save, remove);
+                    usersList.append(row);
+                }
+            } catch (error) {
+                showMessage(error.message, "error");
+            }
+        }
+
+        async function createUser(event) {
+            event.preventDefault();
+            const values = new FormData(userForm);
+            try {
+                await api("/api/auth/users", {
+                    method: "POST",
+                    body: JSON.stringify({
+                        username: values.get("username").trim(),
+                        password: values.get("password"),
+                        role: values.get("role")
+                    })
+                });
+                userForm.reset();
+                showMessage("Account created.", "success");
+                await loadUsers();
+            } catch (error) {
+                showMessage(error.message, "error");
+            }
+        }
+
+        async function updateUserRole(username, role) {
+            try {
+                await api(`/api/auth/users/${encodeURIComponent(username)}/role`, {
+                    method: "PUT",
+                    body: JSON.stringify({ role })
+                });
+                showMessage(`Updated ${username}'s role.`, "success");
+                await loadUsers();
+            } catch (error) {
+                showMessage(error.message, "error");
+            }
+        }
+
+        async function deleteUser(username) {
+            if (!window.confirm(`Delete account "${username}"?`)) return;
+            try {
+                await api(`/api/auth/users/${encodeURIComponent(username)}`, { method: "DELETE" });
+                showMessage("Account deleted.", "success");
+                await loadUsers();
+            } catch (error) {
+                showMessage(error.message, "error");
+            }
+        }
+
+        async function authenticate(event, endpoint) {
+            event.preventDefault();
+            clearMessage();
+            const form = event.currentTarget;
+            const values = new FormData(form);
+            const button = form.querySelector('button[type="submit"]');
+            button.disabled = true;
+            try {
+                const { body } = await api(endpoint, {
+                    method: "POST",
+                    body: JSON.stringify({
+                        username: values.get("username"),
+                        password: values.get("password")
+                    })
+                });
+                sessionStorage.setItem(tokenKey, body.accessToken);
+                sessionStorage.setItem(roleKey, body.role);
+                sessionStorage.setItem(usernameKey, body.username);
+                form.reset();
+                showMessage(`Signed in as ${body.username} (${body.role}).`, "success");
+                renderSession();
+            } catch (error) {
+                showMessage(error.message, "error");
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        function resetBookForm() {
+            editingBookId = null;
+            bookForm.reset();
+            document.getElementById("editor-title").textContent = "Add a book";
+            document.getElementById("save-book-button").textContent = "Add book";
+            document.getElementById("cancel-edit-button").hidden = true;
+        }
+
+        function editBook(book) {
+            editingBookId = book.id;
+            bookForm.elements.title.value = book.title;
+            bookForm.elements.author.value = book.author;
+            bookForm.elements.isbn.value = book.isbn;
+            bookForm.elements.publishedYear.value = book.publishedYear ?? "";
+            bookForm.elements.digitalResourceUrl.value = book.digitalResourceUrl ?? "";
+            document.getElementById("editor-title").textContent = "Edit book";
+            document.getElementById("save-book-button").textContent = "Save changes";
+            document.getElementById("cancel-edit-button").hidden = false;
+            document.getElementById("editor-panel").scrollIntoView({ behavior: "smooth" });
+            bookForm.elements.title.focus();
+        }
+
+        async function saveBook(event) {
+            event.preventDefault();
+            clearMessage();
+            const fields = new FormData(bookForm);
+            const year = fields.get("publishedYear");
+            const book = {
+                title: fields.get("title").trim(),
+                author: fields.get("author").trim(),
+                isbn: fields.get("isbn").trim(),
+                publishedYear: year ? Number(year) : null,
+                digitalResourceUrl: fields.get("digitalResourceUrl").trim() || null
+            };
+            const editing = editingBookId !== null;
+            const path = editing ? `/api/books/${encodeURIComponent(editingBookId)}` : "/api/books";
+            const button = document.getElementById("save-book-button");
+            button.disabled = true;
+            try {
+                await api(path, { method: editing ? "PUT" : "POST", body: JSON.stringify(book) });
+                showMessage(editing ? "Book updated." : "Book added.", "success");
+                resetBookForm();
+                await loadBooks();
+            } catch (error) {
+                showMessage(error.message, "error");
+            } finally {
+                button.disabled = false;
+            }
+        }
+
+        async function deleteBook(book) {
+            if (!window.confirm(`Delete "${book.title}" from the catalogue?`)) return;
+            clearMessage();
+            try {
+                await api(`/api/books/${encodeURIComponent(book.id)}`, { method: "DELETE" });
+                if (editingBookId === book.id) resetBookForm();
+                showMessage("Book deleted.", "success");
+                await loadBooks();
+            } catch (error) {
+                showMessage(error.message, "error");
+            }
+        }
+
+        document.getElementById("login-form")
+            .addEventListener("submit", (event) => authenticate(event, "/api/auth/login"));
+        document.getElementById("register-form")
+            .addEventListener("submit", (event) => authenticate(event, "/api/auth/register"));
+        bookForm.addEventListener("submit", saveBook);
+        userForm.addEventListener("submit", createUser);
+        document.getElementById("refresh-button").addEventListener("click", loadBooks);
+        document.getElementById("search-form").addEventListener("submit", (event) => {
+            event.preventDefault();
+            loadBooks();
+        });
+        document.getElementById("clear-search-button").addEventListener("click", () => {
+            searchQuery.value = "";
+            loadBooks();
+        });
+        document.getElementById("cancel-edit-button").addEventListener("click", resetBookForm);
+        logoutButton.addEventListener("click", () => {
+            sessionStorage.removeItem(tokenKey);
+            sessionStorage.removeItem(roleKey);
+            sessionStorage.removeItem(usernameKey);
+            clearMessage();
+            renderSession();
+            showMessage("You have signed out.", "success");
+        });
+
+        renderSession();
+    })();
+</script>
+</body>
+</html>
